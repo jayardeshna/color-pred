@@ -1,33 +1,65 @@
 package color;
 
+import color.config.DatabaseConnector;
+import color.model.ColorRating;
+import color.model.Customer;
+import color.model.Preference;
+import color.model.TempColorLike;
+import color.repository.CustomRepository;
+import color.service.ColorPredictionImpl;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
         try {
-            // Sample new color to predict
-            int[] newColor = {160, 32, 240}; // Example: a shade of red
 
-            // Fetch all preferences from the database for prediction
-            List<Preference> allPreferences = new ArrayList<>();
-            allPreferences.addAll(DatabaseConnector.getPreferences(1)); // Preferences for Customer 1
-            allPreferences.addAll(DatabaseConnector.getPreferences(2)); // Preferences for Customer 2
-            allPreferences.addAll(DatabaseConnector.getPreferences(3)); // Preferences for Customer 3
+            List<ColorRating> newShirtColors = Arrays.asList(
+                    new ColorRating(new int[]{0, 128, 255}, 3),
+                    new ColorRating(new int[]{150, 75, 0}, 4),
+                    new ColorRating(new int[]{210, 180, 140}, 2),
+                    new ColorRating(new int[]{255, 127, 80}, 4),
+                    new ColorRating(new int[]{48, 213, 200}, 3)
+            );
 
-            // Use ColorPrediction to predict which customers will like the new color
-            List<Customer> predictedCustomers = ColorPrediction.predictCustomersForNewColor(newColor, allPreferences);
 
-            // Output prediction results
-            if (predictedCustomers != null && !predictedCustomers.isEmpty()) {
-                System.out.println("The new RGB color " + java.util.Arrays.toString(newColor) + " will likely be liked by:");
-                for (Customer customer : predictedCustomers) {
-                    System.out.println("Customer " + customer.getName());
+            List<Integer> allCustomerIds = CustomRepository.getAllCustomerIds();
+
+            for (ColorRating colorRating: newShirtColors) {
+
+                List<Integer> matchedCustomerIds = CustomRepository.getTempMatchedCustomerIds();
+
+                List<Preference> allPreferences = new ArrayList<>();
+
+                // Only load preferences for unmatched customers
+                for (int customerId : allCustomerIds) {
+                    if (!matchedCustomerIds.contains(customerId)) {
+                        allPreferences.addAll(CustomRepository.getPreferences(customerId));
+                    }
                 }
-            } else {
-                System.out.println("No customers predicted to like this color.");
-            }
 
+                // Predict customers for this color
+                List<Customer> predictedCustomers = ColorPredictionImpl.predictCustomersForNewColor(
+                        colorRating.getRgb(),
+                        colorRating.getRating(),
+                        allPreferences
+                );
+
+                for (Customer customer : predictedCustomers) {
+                    CustomRepository.saveTempColorMatch(customer.getId(), colorRating);
+                }
+
+                if (!predictedCustomers.isEmpty()) {
+                    System.out.println("Color " + Arrays.toString(colorRating.getRgb()) + " liked by:");
+                    for (Customer customer : predictedCustomers) {
+                        System.out.println("Customer " + customer.getId());
+                    }
+                } else {
+                    System.out.println("No customers liked color " + Arrays.toString(colorRating.getRgb()));
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

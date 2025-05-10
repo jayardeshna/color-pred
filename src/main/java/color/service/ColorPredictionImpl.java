@@ -1,10 +1,14 @@
-package color;
+package color.service;
+
+import color.model.ColorRating;
+import color.model.Customer;
+import color.model.Preference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-class ColorPrediction {
+public class ColorPredictionImpl {
     /**
      * Predicts which customers will like a new color based on their historical preferences
      *
@@ -12,37 +16,29 @@ class ColorPrediction {
      * @param preferences List of customer preferences
      * @return List of customers predicted to like the new color
      */
-    public static List<Customer> predictCustomersForNewColor(int[] newColor, List<Preference> preferences) {
+
+    public static List<Customer> predictCustomersForNewColor(int[] newColor, int rating, List<Preference> preferences) {
         // Store unique customers to avoid duplicates
         Map<Integer, Customer> uniqueCustomers = new HashMap<>();
 
+        double baseThreshold;
+        if (rating == 5) baseThreshold = 75.0;
+        else if (rating == 4) baseThreshold = 50.0 * 1.10;
+        else if (rating == 3) baseThreshold = 37.5 * 1.30;
+        else if (rating == 2) baseThreshold = 37.5 * 1.60;
+        else if (rating == 1) baseThreshold = 37.5 * 2.00;
+        else return new ArrayList<>();
+
         // Process each preference
         for (Preference pref : preferences) {
-            int rating = pref.getRating();
-
-            // According to FR5, only consider ratings 3, 4, or 5
-            if (rating < 3) {
-                continue;
-            }
-
-            // Define distance threshold based on rating (FR4)
-            double threshold;
-            if (rating == 5) {
-                threshold = 75.0;
-            } else if (rating == 4) {
-                // Adding threshold for rating 4 (missing in original code)
-                threshold = 50.0;  // Appropriate value between rating 3 and 5 thresholds
-            } else if (rating == 3) {
-                threshold = 37.5;
-            } else {
-                continue; // Skip invalid ratings
-            }
+            int prefRating = pref.getRating();
+            if (prefRating < 3) continue;
 
             // Calculate color distance
             double distance = calculateColorDistance(newColor, pref.getRgb());
 
             // If within threshold, add customer to results
-            if (distance <= threshold && !uniqueCustomers.containsKey(pref.getCustomerId())) {
+            if (distance <= baseThreshold && !uniqueCustomers.containsKey(pref.getCustomerId())) {
                 Customer customer = new Customer(pref.getCustomerId(), "Customer " + pref.getCustomerId());
                 uniqueCustomers.put(pref.getCustomerId(), customer);
             }
@@ -71,4 +67,5 @@ class ColorPrediction {
 
         return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
     }
+
 }
